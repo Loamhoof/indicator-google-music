@@ -1,0 +1,9 @@
+{
+    "name": "Indicator Google Music",
+    "version": "0",
+    "manifest_version": 2,
+    "background": {
+        "scripts": ["main.js"]
+    },
+    "permissions": ["tabs", "http://*/*", "https://*/*"]
+}
