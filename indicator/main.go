@@ -55,10 +55,11 @@ func ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	}
 
 	iReq := &pb.Request{
-		Id:     ID,
-		Label:  label,
-		Icon:   icon,
-		Active: true,
+		Id:         ID,
+		Label:      label,
+		LabelGuide: "01234567890123456789 - 01234567890123456789 (00:00 / 99:99)",
+		Icon:       icon,
+		Active:     true,
 	}
 	if _, err := sc.Update(iReq); err != nil {
 		logger.Println(err)
