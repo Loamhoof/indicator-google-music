@@ -9,9 +9,6 @@ import (
 	"os"
 	"strings"
 	"time"
-
-	pb "github.com/loamhoof/indicator"
-	"github.com/loamhoof/indicator/client"
 )
 
 const (
@@ -19,23 +16,18 @@ const (
 )
 
 var (
-	play, pause, logFile string
-	port                 int
-	sc                   *client.ShepherdClient
-	logger               *log.Logger
-	resetTimer           *time.Timer
-	resetAfter           time.Duration = time.Second * 3
+	port       int
+	logger     *log.Logger
+	resetTimer *time.Timer
+	resetAfter time.Duration = time.Second * 3
 )
 
 func init() {
 	flag.IntVar(&port, "port", 15000, "Port of the shepherd")
-	flag.StringVar(&play, "play", "", "Path to the play icon")
-	flag.StringVar(&pause, "pause", "", "Path to the pause icon")
-	flag.StringVar(&logFile, "log", "", "Log file")
 
 	flag.Parse()
 
-	logger = log.New(os.Stdout, "", log.LstdFlags)
+	logger = log.New(os.Stdout, "", log.LstdFlags|log.Lshortfile)
 }
 
 func ServeHTTP(rw http.ResponseWriter, req *http.Request) {
@@ -45,23 +37,25 @@ func ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 
 	path := decodePath(req.URL)
 
-	label := fmt.Sprintf("%s - %s (%s / %s)", path[0], path[1], path[2], path[3])
-
-	var icon string
-	if path[4] == "false" {
-		icon = play
-	} else {
-		icon = pause
+	artist := path[0]
+	song := path[1]
+	if len(artist) > 15 {
+		artist = artist[:14] + "…"
+	}
+	if len(song) > 15 {
+		song = song[:14] + "…"
 	}
 
-	iReq := &pb.Request{
-		Id:         ID,
-		Label:      label,
-		LabelGuide: "01234567890123456789 - 01234567890123456789 (00:00 / 99:99)",
-		Icon:       icon,
-		Active:     true,
-	}
-	if _, err := sc.Update(iReq); err != nil {
+	label := fmt.Sprintf("%s - %s", artist, song)
+
+	// var icon string
+	// if path[4] == "false" {
+	// 	icon = play
+	// } else {
+	// 	icon = pause
+	// }
+
+	if err := update(ID, label); err != nil {
 		logger.Println(err)
 	}
 }
@@ -90,34 +84,19 @@ func serve() {
 	}
 }
 
+func update(id, label string) error {
+	resp, err := http.Post(fmt.Sprintf("http://localhost:%v/%s", port, id), "text/plain", strings.NewReader(label))
+	if err != nil {
+		return err
+	}
+	resp.Body.Close()
+
+	return nil
+}
+
 func main() {
-	if logFile != "" {
-		f, err := os.OpenFile(logFile, os.O_TRUNC|os.O_CREATE|os.O_WRONLY, os.ModePerm)
-		if err != nil {
-			logger.Fatalln(err)
-		}
-		defer f.Close()
-		logger = log.New(f, "", log.LstdFlags)
-	}
-
-	sc = client.NewShepherdClient(port)
-	for {
-		err := sc.Init()
-		if err == nil {
-			break
-		}
-		logger.Fatalf("Could not connect: %v", err)
-
-		time.Sleep(time.Second * 5)
-	}
-	defer sc.Close()
-
 	resetTimer = time.AfterFunc(resetAfter, func() {
-		iReq := &pb.Request{
-			Id:     ID,
-			Active: false,
-		}
-		if _, err := sc.Update(iReq); err != nil {
+		if err := update(ID, ""); err != nil {
 			logger.Println(err)
 		}
 	})

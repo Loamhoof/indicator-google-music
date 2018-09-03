@@ -7,7 +7,6 @@
                 return;
             }
 
-            // Only consider one tab, don't want the same mess as with YT
             let tab = tabs[0];
 
             chrome.tabs.executeScript(tab.id, {code: '(' + (() => {
@@ -16,8 +15,11 @@
                 let current = document.getElementById('time_container_current').innerText;
                 let duration = document.getElementById('time_container_duration').innerText;
                 let [,audio] = document.getElementsByTagName('audio');
+                // let current = audio.currentTime;
+                // let duration = document.querySelector(".currently-playing [data-col=duration] span").innerText;
+                let paused = !!audio.paused;
 
-                return [artist, title, current, duration, !!audio.paused];
+                return [artist, title, current, duration, paused];
             }) + ')();'}, ([[artist, title, current, duration, paused]]) => {
                 let xhr = new XMLHttpRequest();
                 xhr.open('GET', `${TARGET}/${encodeURIComponent(artist)}/${encodeURIComponent(title)}/${current}/${duration}/${paused}`);
