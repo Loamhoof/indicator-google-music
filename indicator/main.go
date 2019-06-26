@@ -11,15 +11,15 @@ import (
 	"time"
 )
 
-const (
-	ID = "indicator-google-music"
-)
-
 var (
-	port       int
-	logger     *log.Logger
-	resetTimer *time.Timer
-	resetAfter time.Duration = time.Second * 3
+	IDs = map[string]string{
+		"google-music":  "indicator-google-music",
+		"youtube-music": "indicator-youtube-music",
+	}
+	port        int
+	logger      *log.Logger
+	resetTimers               = make(map[string]*time.Timer)
+	resetAfter  time.Duration = time.Second * 3
 )
 
 func init() {
@@ -33,12 +33,14 @@ func init() {
 func ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	logger.Println("Request", req.URL.Path)
 
-	resetTimer.Reset(resetAfter)
-
 	path := decodePath(req.URL)
 
-	artist := path[0]
-	song := path[1]
+	app := path[0]
+
+	resetTimers[app].Reset(resetAfter)
+
+	artist := path[1]
+	song := path[2]
 	if len(artist) > 15 {
 		artist = artist[:14] + "…"
 	}
@@ -46,16 +48,16 @@ func ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 		song = song[:14] + "…"
 	}
 
-	label := fmt.Sprintf("%s - %s", artist, song)
+	var icon string
+	if path[5] == "false" {
+		icon = "▶"
+	} else {
+		icon = "⏸"
+	}
 
-	// var icon string
-	// if path[4] == "false" {
-	// 	icon = play
-	// } else {
-	// 	icon = pause
-	// }
+	label := fmt.Sprintf("%s %s - %s", icon, artist, song)
 
-	if err := update(ID, label); err != nil {
+	if err := update(IDs[app], label); err != nil {
 		logger.Println(err)
 	}
 }
@@ -95,11 +97,13 @@ func update(id, label string) error {
 }
 
 func main() {
-	resetTimer = time.AfterFunc(resetAfter, func() {
-		if err := update(ID, ""); err != nil {
-			logger.Println(err)
-		}
-	})
+	for app, id := range IDs {
+		resetTimers[app] = time.AfterFunc(resetAfter, func() {
+			if err := update(id, ""); err != nil {
+				logger.Println(err)
+			}
+		})
+	}
 
 	serve()
 }
